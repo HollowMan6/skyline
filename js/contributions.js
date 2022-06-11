@@ -11,6 +11,32 @@ const CUBE_SIZE = 0.0143
 const MAX_HEIGHT = 0.14
 const FACE_ANGLE = 104.79
 
+// sort array ascending
+const asc = arr => arr.sort((a, b) => a - b);
+
+const sum = arr => arr.reduce((a, b) => a + b, 0);
+
+const mean = arr => sum(arr) / arr.length;
+
+// sample standard deviation
+const std = (arr) => {
+    const mu = mean(arr);
+    const diffArr = arr.map(a => (a - mu) ** 2);
+    return Math.sqrt(sum(diffArr) / (arr.length - 1));
+};
+
+const quantile = (arr, q) => {
+    const sorted = asc(arr);
+    const pos = (sorted.length - 1) * q;
+    const base = Math.floor(pos);
+    const rest = pos - base;
+    if (sorted[base + 1] !== undefined) {
+        return sorted[base] + rest * (sorted[base + 1] - sorted[base]);
+    } else {
+        return sorted[base];
+    }
+};
+
 let username = ""
 let goal = ""
 let apikey = ""
@@ -95,20 +121,24 @@ async function loadJSON(username, goal, apikey) {
   if (response.ok) {
     const beeminderData = await response.json()
     json = {
-      year: "2022",
-      min: 1,
-      max: 10,
-      median: 2,
-      p80: 4,
-      p90: 6,
-      p99: 10,
+      year: new Date().getFullYear(),
+      min: 0,
+      max: 0,
+      median: 0,
+      p80: 0,
+      p90: 0,
+      p99: 5,
       contributions: []
     }
 
-    // TODO calculate median, p80, p90, p99 and cut if different year; also get year from URL
+    // TODO get year from URL
+    // TODO validate if skyline looks really legit
     beeminderData.forEach(point => {
         const {timestamp, value} = point;
         const date = new Date(timestamp * 1000);
+        if (date.getFullYear() !== new Date().getFullYear()) {
+          return;
+        }
 
         const week = json.contributions.find(week => week.week === getWeekNumber(date));
         if (!week) {
@@ -123,7 +153,7 @@ async function loadJSON(username, goal, apikey) {
           })
         } else {
             // has week
-            const day = week.find(day => day.date === date.toISOString().split('T')[0]);
+            const day = week.days.find(day => day.date === date.toISOString().split('T')[0]);
             if (day) {
               day.count += value;
             } else {
@@ -134,7 +164,18 @@ async function loadJSON(username, goal, apikey) {
             }
         }
     });
-    console.log(json)
+
+    const allCounts = json.contributions.map(week => week.days.map(day => day.count)).flat().filter(x=>x);
+  
+
+    json.max = Math.max.apply(null, allCounts);
+    json.max = Math.min.apply(null, allCounts);
+    json.median = quantile(allCounts, 0.5);
+    json.p80 = quantile(allCounts, 0.8);
+    json.p90 = quantile(allCounts, 0.8);
+    json.p99 = quantile(allCounts, 0.99);
+    
+    console.log(json, allCounts);
     init()
     animate()
   } else {
@@ -152,7 +193,7 @@ function getWeekNumber(d) {
   // Calculate full weeks to nearest Thursday
   var weekNo = Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
   // Return array of year and week number
-  return [d.getUTCFullYear(), weekNo];
+  return weekNo;
 }
 
 loadJSON(username, goal, apikey)
