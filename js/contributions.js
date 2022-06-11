@@ -11,8 +11,11 @@ const CUBE_SIZE = 0.0143
 const MAX_HEIGHT = 0.14
 const FACE_ANGLE = 104.79
 
-let username = "nat"
-let year = "" + (new Date()).getFullYear()
+let username = ""
+let goal = ""
+let apikey = ""
+
+let year = new Date().getFullYear();
 let json = {}
 let font = undefined
 let fontSize = 0.025
@@ -30,24 +33,129 @@ if (urlParams.has('username')) {
   username = urlParams.get('username')
 }
 
-if (urlParams.has('year')) {
-  year = urlParams.get('year')
+if (urlParams.has('goal')) {
+  goal = urlParams.get('goal')
+}
+
+if (urlParams.has('apikey')) {
+  apikey = urlParams.get('apikey')
 }
 
 // Import JSON data
-async function loadJSON(username, year) {
-  let url = `https://json-contributions-five.vercel.app/api/user?username=${username}&year=${year}`
+
+async function loadJSON(username, goal, apikey) {
+  // TODO https://json-contributions-five.vercel.app/api/user?username=szymonkorytnicki&year=2022
+  // desired data shape:
+  let data = {contributions: [
+    {
+    week: 0,
+    days: [
+    {
+    date: "2022-01-01",
+    count: 1,
+    }
+    ],
+    },
+    {
+    week: 1,
+    days: [
+    {
+    date: "2022-01-02",
+    count: 1,
+    },
+    {
+    date: "2022-01-03",
+    count: 0,
+    },
+    {},
+    {
+    date: "2022-01-05",
+    count: 0,
+    },
+    {
+    date: "2022-01-06",
+    count: 0,
+    },
+    {
+    date: "2022-01-07",
+    count: 1,
+    },
+    {
+    date: "2022-01-08",
+    count: 1,
+    },
+    ],
+    },
+  ]};
+  // what we get:
+  // [{"timestamp":1654933191,"value":0.5}]
+
+  let url = `https://www.beeminder.com/api/v1/users/${username}/goals/${goal}/datapoints.json?auth_token=${apikey}&count=500`;
   let response = await fetch(url)
   if (response.ok) {
-    json = await response.json()
+    const beeminderData = await response.json()
+    json = {
+      year: "2022",
+      min: 1,
+      max: 10,
+      median: 2,
+      p80: 4,
+      p90: 6,
+      p99: 10,
+      contributions: []
+    }
+
+    // TODO calculate median, p80, p90, p99 and cut if different year; also get year from URL
+    beeminderData.forEach(point => {
+        const {timestamp, value} = point;
+        const date = new Date(timestamp * 1000);
+
+        const week = json.contributions.find(week => week.week === getWeekNumber(date));
+        if (!week) {
+          json.contributions.push({
+            week: getWeekNumber(date),
+            days: [
+              {
+                date: date.toISOString().split('T')[0],
+                count: value,
+              }
+            ]
+          })
+        } else {
+            // has week
+            const day = week.find(day => day.date === date.toISOString().split('T')[0]);
+            if (day) {
+              day.count += value;
+            } else {
+              week.days.push({
+                date: date.toISOString().split('T')[0],
+                count: value,
+              })
+            }
+        }
+    });
+    console.log(json)
     init()
     animate()
   } else {
     alert("HTTP-Error: " + response.status)
   }
 }
+function getWeekNumber(d) {
+  // Copy date so don't modify original
+  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  // Set to nearest Thursday: current date + 4 - current day number
+  // Make Sunday's day number 7
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+  // Get first day of year
+  var yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  // Calculate full weeks to nearest Thursday
+  var weekNo = Math.ceil(( ( (d - yearStart) / 86400000) + 1)/7);
+  // Return array of year and week number
+  return [d.getUTCFullYear(), weekNo];
+}
 
-loadJSON(username, year)
+loadJSON(username, goal, apikey)
 
 const createText = () => {
   let nameGeo = new THREE.TextGeometry(username, {
