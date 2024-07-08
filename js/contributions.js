@@ -37,11 +37,9 @@ const quantile = (arr, q) => {
     }
 };
 
-let username = ""
-let goal = ""
-let apikey = ""
+let username = "HollowMan6"
 
-let year = new Date().getFullYear();
+let year = "2023";
 let json = {}
 let font = undefined
 let fontSize = 0.025
@@ -59,69 +57,19 @@ if (urlParams.has('username')) {
   username = urlParams.get('username')
 }
 
-if (urlParams.has('goal')) {
-  goal = urlParams.get('goal')
-}
-
-if (urlParams.has('apikey')) {
-  apikey = urlParams.get('apikey')
+if (urlParams.has('year')) {
+  year = urlParams.get('year')
 }
 
 // Import JSON data
 
-async function loadJSON(username, goal, apikey) {
-  // TODO https://json-contributions-five.vercel.app/api/user?username=szymonkorytnicki&year=2022
-  // desired data shape:
-  let data = {contributions: [
-    {
-    week: 0,
-    days: [
-    {
-    date: "2022-01-01",
-    count: 1,
-    }
-    ],
-    },
-    {
-    week: 1,
-    days: [
-    {
-    date: "2022-01-02",
-    count: 1,
-    },
-    {
-    date: "2022-01-03",
-    count: 0,
-    },
-    {},
-    {
-    date: "2022-01-05",
-    count: 0,
-    },
-    {
-    date: "2022-01-06",
-    count: 0,
-    },
-    {
-    date: "2022-01-07",
-    count: 1,
-    },
-    {
-    date: "2022-01-08",
-    count: 1,
-    },
-    ],
-    },
-  ]};
-  // what we get:
-  // [{"timestamp":1654933191,"value":0.5}]
-
-  let url = `https://www.beeminder.com/api/v1/users/${username}/goals/${goal}/datapoints.json?auth_token=${apikey}&count=500`;
+async function loadJSON(username, year) {
+  let url = `https://github-contributions-api.jogruber.de/v4/${username}?y=${year}`;
   let response = await fetch(url)
   if (response.ok) {
-    const beeminderData = await response.json()
+    const responseData = await response.json()
     json = {
-      year: new Date().getFullYear(),
+      year: year,
       min: 0,
       max: 0,
       median: 0,
@@ -133,33 +81,28 @@ async function loadJSON(username, goal, apikey) {
 
     // TODO get year from URL
     // TODO validate if skyline looks really legit
-    beeminderData.forEach(point => {
-        const {timestamp, value} = point;
-        const date = new Date(timestamp * 1000);
-        if (date.getFullYear() !== new Date().getFullYear()) {
-          return;
-        }
-
+    responseData.contributions.forEach(point => {
+        const {date, count, level} = point;
         const week = json.contributions.find(week => week.week === getWeekNumber(date));
         if (!week) {
           json.contributions.push({
             week: getWeekNumber(date),
             days: [
               {
-                date: date.toISOString().split('T')[0],
-                count: value,
+                date: date,
+                count: count,
               }
             ]
           })
         } else {
             // has week
-            const day = week.days.find(day => day.date === date.toISOString().split('T')[0]);
+            const day = week.days.find(day => day.date === date);
             if (day) {
-              day.count += value;
+              day.count += count;
             } else {
               week.days.push({
-                date: date.toISOString().split('T')[0],
-                count: value,
+                date: date,
+                count: count,
               })
             }
         }
@@ -174,8 +117,7 @@ async function loadJSON(username, goal, apikey) {
     json.p80 = quantile(allCounts, 0.8);
     json.p90 = quantile(allCounts, 0.8);
     json.p99 = quantile(allCounts, 0.99);
-    
-    console.log(json, allCounts);
+
     init()
     animate()
   } else {
@@ -184,7 +126,7 @@ async function loadJSON(username, goal, apikey) {
 }
 function getWeekNumber(d) {
   // Copy date so don't modify original
-  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  d = new Date(d);
   // Set to nearest Thursday: current date + 4 - current day number
   // Make Sunday's day number 7
   d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
@@ -195,8 +137,6 @@ function getWeekNumber(d) {
   // Return array of year and week number
   return weekNo;
 }
-
-loadJSON(username, goal, apikey)
 
 const createText = () => {
   let nameGeo = new THREE.TextGeometry(username, {
@@ -490,3 +430,5 @@ function saveArrayBuffer( buffer, filename ) {
   save( new Blob( [ buffer ], { type: 'application/octet-stream' } ), filename );
 
 }
+
+loadJSON(username, year)

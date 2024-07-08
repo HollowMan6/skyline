@@ -1,32 +1,18 @@
-Given a Beeminder username, apikey, goal slug and year, get a pretty skyline. Think "calendar heatmap" but in 3D.
-
-## Setup
-
-Make sure you have node js and npm. Then, clone repo.
-
-Run once:
-```
-npm install
-```
-and then:
-```
-npm run start
-```
-
-then, append to the URL:
+Given a Github username and a year, renders a 3D model of their contribution chart. The data is fetched via https://github.com/grubersjoe/github-contributions-api (https://github-contributions-api.jogruber.de/v4/HollowMan6?y=2023)).
 
 ```
-?username=<username>&apikey=<apikey>&goal=<goal-slug>&year=<year>
+?username=<username>&year=<year>
 ```
 
 If no year is provided, the current year will be used.
 
-## Development
+Examples: 
+ - http://localhost:3000/?username=HollowMan6
+ - http://localhost:3000/?username=HollowMan6&year=2023
 
-Math is not yet 100% correct imo.
+#### Development
+
+I've been using `vercel` for local dev. To load up a local server: `vercel dev`.
 
 Note that this version creates a distribution from the 99th percentile on the contributions per day to stop the odd _really_ big days blowing out the scale. It also has a default minimum for non-zero contribition days (10% of the maximum height)
-
-
-
 
